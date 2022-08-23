@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+USER="<Oracle GUID>"
+TOKEN="<Bitbucket Personal Access Token>"
+
+project=${1}
+limit=25
+isLastPage="false"
+nextPageStart=0
+
+while [[ ${isLastPage} != "true" ]]; do
+    url="https://bitbucket.oci.oraclecorp.com/rest/api/1.0/projects/${project}/repos?limit=${limit}&start=${nextPageStart}"
+    repos_json=$(curl -su ${USER}:${TOKEN} ${url})
+    isLastPage=$(echo ${repos_json} | jq -r '.isLastPage')
+    nextPageStart=$(echo ${repos_json} | jq -r '.nextPageStart')
+    repos=$(echo ${repos_json} | jq -r '.values[] | .links.clone[0].href')
+
+    for repo in $(echo ${repos}); do
+        directory=$(echo ${repo} | sed 's/.*\/\(.*\)\.git/\1/')
+        if [[ -d ${directory} ]]; then
+            continue
+        else
+            git clone ${repo}
+        fi
+    done
+done
